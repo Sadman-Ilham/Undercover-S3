@@ -1,0 +1,201 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "version": "1.0",
+    "title": "Undercover S3",
+    "description": "Proxy S3 using API Gateway"
+  },
+  "tags": [
+    {
+      "name": "cors"
+    },
+    {
+      "name": "storage"
+    }
+  ],
+  "paths": {
+    "/photos": {
+      "options": {
+        "summary": "CORS support",
+        "description": "Enable CORS by returning correct headers",
+        "tags": [
+          "cors"
+        ],
+        "responses": {
+          "200": {
+            "description": "Default response for CORS method",
+            "headers": {
+              "Access-Control-Allow-Headers": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Methods": {
+                "type": "string"
+              },
+              "Access-Control-Allow-Origin": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "x-amazon-apigateway-integration": {
+          "requestTemplates": {
+            "application/json": "{\"statusCode\": 200}"
+          },
+          "responses": {
+            "default": {
+              "statusCode": "200",
+              "responseParameters": {
+                "method.response.header.Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key'",
+                "method.response.header.Access-Control-Allow-Methods": "'*'",
+                "method.response.header.Access-Control-Allow-Origin": "'*'"
+              }
+            }
+          },
+          "type": "mock"
+        }
+      },
+      "put": {
+        "summary": "Upload",
+        "description": "Upload a photo",
+        "tags": [
+          "storage"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "consumes": [
+          "image/jpeg"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "authorization",
+            "description": "Authorization token",
+            "in": "header",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response"
+          },
+          "500": {
+            "description": "500 response"
+          }
+        },
+        "x-amazon-apigateway-integration": {
+          "credentials": "arn:aws:iam::<account_id>:role/<role_name>",
+          "responses": {
+            "default": {
+              "statusCode": "500"
+            },
+            "2\\d{2}": {
+              "statusCode": "200",
+              "responseTemplates": {
+                "application/json": "{\"url\": \"https://<rest_api_id>.execute-api.<region>.amazonaws.com$context.path?q=$context.authorizer.userUUID\"}"
+              }
+            }
+          },
+          "requestParameters": {
+            "integration.request.path.userUUID": "context.authorizer.userUUID"
+          },
+          "uri": "arn:aws:apigateway:<region>:s3:path/<bucket_name>/{userUUID}",
+          "passthroughBehavior": "when_no_match",
+          "httpMethod": "PUT",
+          "type": "aws",
+          "contentHandling": "CONVERT_TO_BINARY"
+        }
+      },
+      "get": {
+        "summary": "Download",
+        "description": "Download a photo",
+        "tags": [
+          "storage"
+        ],
+        "security": [
+          {
+            "Bearer": []
+          }
+        ],
+        "produces": [
+          "image/jpeg"
+        ],
+        "parameters": [
+          {
+            "name": "authorization",
+            "description": "Authorization token",
+            "in": "header",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "q",
+            "description": "Photo name to query",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "200 response",
+            "headers": {
+              "Content-Type": {
+                "type": "string"
+              }
+            }
+          },
+          "500": {
+            "description": "500 response"
+          }
+        },
+        "x-amazon-apigateway-integration": {
+          "credentials": "arn:aws:iam::<account_id>:role/<role_name>",
+          "responses": {
+            "default": {
+              "statusCode": "500"
+            },
+            "2\\d{2}": {
+              "statusCode": "200",
+              "responseParameters": {
+                "method.response.header.Content-Type": "'image/jpeg'"
+              }
+            }
+          },
+          "requestParameters": {
+            "integration.request.path.userUUID": "method.request.querystring.q"
+          },
+          "uri": "arn:aws:apigateway:<region>:s3:path/<bucket_name>/{userUUID}",
+          "passthroughBehavior": "when_no_match",
+          "httpMethod": "GET",
+          "type": "aws",
+          "contentHandling": "CONVERT_TO_BINARY"
+        }
+      }
+    }
+  },
+
+  "x-amazon-apigateway-binary-media-types": ["image/jpeg"],
+
+  "securityDefinitions": {
+    "Bearer": {
+      "description": "Authorization key",
+      "type": "apiKey",
+      "name": "authorization",
+      "in": "header",
+      "x-amazon-apigateway-authtype": "custom",
+      "x-amazon-apigateway-authorizer": {
+        "type": "token",
+        "identitySource": "method.request.header.authorization",
+        "authorizerCredentials": "arn:aws:iam::<account_id>:role/<role_name>",
+        "authorizerUri": "arn:aws:apigateway:<region>:lambda:path/2015-03-31/functions/arn:aws:lambda:<region>:<account_id>:function:<handler>/invocations",
+        "authorizerResultTtlInSeconds": 0
+      }
+    }
+  }
+}
